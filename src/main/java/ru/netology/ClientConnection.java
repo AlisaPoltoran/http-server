@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class ClientConnection extends Thread {
+public class ClientConnection implements Runnable {
 
     private final Socket socket;
 
@@ -24,8 +24,6 @@ public class ClientConnection extends Thread {
              final BufferedOutputStream out = new BufferedOutputStream(this.socket.getOutputStream());) {
 
             final String url = this.getRequestUrl(in);
-            System.out.println(url);
-
 
             if (!this.validPaths.contains(url)) {
                 out.write((
@@ -35,16 +33,12 @@ public class ClientConnection extends Thread {
                                 "\r\n"
                 ).getBytes());
                 out.flush();
-                currentThread().interrupt();
 
             } else {
 
                 final Path filePath = Path.of(".", "public", url);
-                System.out.println(filePath);
                 final var mimeType = Files.probeContentType(filePath);
-                System.out.println(mimeType);
                 final var length = Files.size(filePath);
-                System.out.println(length);
 
                 // special case for classic
                 if (url.equals("/classic.html")) {
