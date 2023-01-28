@@ -1,21 +1,23 @@
 package ru.netology;
 
-import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Optional;
 
 public class ClientConnection implements Runnable {
+
+    final int LIMIT = 4_096;
 
     private final Socket socket;
 
     private final List<String> validPaths;
-
-    // TODO согласно условиям задачи, handlers должны храниться только в классе server, но я не могу придумать,
-    //  как их тогда использовать в классе ClientConnection, кроме как передать через конструктор.
-    //  Можете подсказать, пожалуйста?
 
     private Map<String, Map<String, Handler>> handlers;
 
@@ -27,8 +29,8 @@ public class ClientConnection implements Runnable {
 
     @Override
     public void run() {
-        try (final BufferedReader in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-             final BufferedOutputStream out = new BufferedOutputStream(this.socket.getOutputStream());) {
+        try (final BufferedInputStream in = new BufferedInputStream(this.socket.getInputStream());
+             final BufferedOutputStream out = new BufferedOutputStream(this.socket.getOutputStream())) {
 
             Request request = parseRequest(in, out);
 
@@ -39,24 +41,72 @@ public class ClientConnection implements Runnable {
         }
     }
 
-    private Request parseRequest(BufferedReader in, BufferedOutputStream out) throws IOException {
-        final String requestLine = in.readLine();
-        final String[] parts = requestLine.split(" ");
-        if (parts.length != 3) {
+    private Request parseRequest(BufferedInputStream in, BufferedOutputStream out) throws IOException {
+
+        in.mark(LIMIT);
+        final byte[] buffer = new byte[LIMIT];
+        final int read = in.read(buffer);
+
+        final byte[] requestLineDelimiter = new byte[]{'\r', '\n'};
+        final int requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
+        if (requestLineEnd == -1) {
+            badRequestMessage(out);
+            socket.close();
+        }
+
+        final String[] requestLine = new String(Arrays.copyOf(buffer, requestLineEnd)).split(" ");
+        if (requestLine.length != 3) {
             // just close socket
             badRequestMessage(out);
             socket.close();
         }
 
-        String method = parts[0];
-        String path = parts[1];
-        String protocol = parts[2];
-        String body = "There is no body in this request";
-        if (parts.length > 3) {
-            body = parts[3];
+        final String method = requestLine[0];
+        System.out.println("Метод: " + method);
+
+        final String path = requestLine[1];
+        if (!path.startsWith("/")) {
+            badRequestMessage(out);
+            socket.close();
+        }
+        System.out.println("Путь: " + path);
+
+        String protocol = requestLine[2];
+        System.out.println("Протокол: " + protocol);
+
+        //ищем заголовки
+        final byte[] headersDelimiter = new byte[]{'\r', '\n', '\r', '\n'};
+        final int headersStart = requestLineEnd + requestLineDelimiter.length;
+        final int headersEnd = indexOf(buffer, headersDelimiter, headersStart, read);
+        if (headersEnd == -1) {
+            badRequestMessage(out);
+            socket.close();
         }
 
-        return new Request(method, path, protocol, body);
+        in.reset();
+        in.skip(headersStart);
+
+        final byte[] headersBytes = in.readNBytes(headersEnd - headersStart);
+        final List<String> headers = Arrays.asList(new String(headersBytes).split("\r\n"));
+        String body = null;
+        if (!method.equals("GET")) {
+            in.skip(headersDelimiter.length);
+            final Optional <String> contentLength = extractHeader(headers, "Content-Length");
+            if(contentLength.isPresent()) {
+                final int length = Integer.parseInt(contentLength.get());
+                final var bodyBytes = in.readNBytes(length);
+                body = new String(bodyBytes);
+                System.out.println("This is a body: " + body);
+            }
+        }
+
+        Request request = new Request(method, path, protocol, body);
+        System.out.println("Метод getQueryParam по title: " + request.getQueryParam("title"));
+        System.out.println("Метод getQueryParams: " + request.getQueryParams());
+        System.out.println("this is a request: " + request);
+
+        return request;
+
     }
 
     public void handleRequest(Request request, BufferedOutputStream out) {
@@ -85,12 +135,12 @@ public class ClientConnection implements Runnable {
 
             Map<String, Handler> values = handlers.get(request.getMethod());
 
-            if (!values.containsKey(request.getPath())) {
+            if (!values.containsKey(request.getPathWithoutQueryParams())) {
                 notFoundMessage(out);
                 return;
             }
 
-            Handler handler = values.get(request.getPath());
+            Handler handler = values.get(request.getPathWithoutQueryParams());
             handler.handle(request, out);
 
         } catch (IOException e) {
@@ -118,5 +168,24 @@ public class ClientConnection implements Runnable {
         out.flush();
     }
 
-}
+    private static int indexOf(byte[] array, byte[] target, int start, int max) {
+        outer:
+        for (int i = start; i < max - target.length + 1; i++) {
+            for (int j = 0; j < target.length; j++) {
+                if (array[i + j] != target[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
 
+    private static Optional<String> extractHeader(List<String> headers, String header) {
+        return headers.stream()
+                .filter(o -> o.startsWith(header))
+                .map(o -> o.substring(o.indexOf(" ")))
+                .map(String::trim)
+                .findFirst();
+    }
+}
