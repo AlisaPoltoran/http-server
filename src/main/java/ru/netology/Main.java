@@ -9,9 +9,6 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) throws IOException {
 
-        //TODO я таким образом подсветила свои комментарии и вопросы, чтобы сразу бросалось в глаза :)
-
-        //TODO я создала отдельный handler для /classic.html, и удалила его из validPaths
         final var validPaths = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html",
                 "/styles.css", "/app.js", "/links.html", "/forms.html", "/events.html", "/events.js");
         final int port = 9999;
@@ -46,7 +43,6 @@ public class Main {
                             "\r\n"
             ).getBytes());
             out.flush();
-            //TODO это я сделала для того, чтобы видеть, что handler сработал)
             System.out.println("POST request");
         }));
 
@@ -58,13 +54,20 @@ public class Main {
                             "\r\n"
             ).getBytes());
             out.flush();
-            //TODO это я сделала для того, чтобы видеть, что handler сработал)
             System.out.println("GET request");
         })));
+
+        server.addHandler("POST", "/", ((((request, out) -> {
+            out.write((
+                    "HTTP/1.1 200 OK\r\n" +
+                            "Content-Length: 0\r\n" +
+                            "Connection: close\r\n" +
+                            "\r\n"
+            ).getBytes());
+            out.flush();
+        }))));
 
         server.connect();
 
     }
 }
-
-
