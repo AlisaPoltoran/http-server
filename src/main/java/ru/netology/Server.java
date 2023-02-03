@@ -10,7 +10,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 public class Server {
 
-    private int port;
+    private final int port;
 
     private final List<String> validPaths;
 
@@ -29,7 +29,7 @@ public class Server {
     public void connect() {
         try (var serverSocket = new ServerSocket(this.port)) {
             while (true) {
-                final Socket socket = serverSocket.accept();
+                Socket socket = serverSocket.accept();
                 ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(64);
                 executor.submit(new ClientConnection(socket, validPaths, handlers));
             }

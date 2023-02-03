@@ -67,7 +67,27 @@ public class Request {
     }
 
     public String getPathWithoutQueryParams() {
-        int delimiter = this.path.indexOf("?");
-        return this.path.substring(0, delimiter);
+        if (this.path.contains("?")) {
+            int delimiter = this.path.indexOf("?");
+            return this.path.substring(0, delimiter);
+        } else {
+            return this.path;
+        }
     }
+
+    public List<NameValuePair> getPostParams() {
+        List<NameValuePair> params = null;
+        if (!(this.body == null)) {
+            params = URLEncodedUtils.parse(this.body, StandardCharsets.UTF_8, '&');
+        }
+        return params;
+    }
+
+    public Optional<NameValuePair> getPostParam(String name) {
+        return this.getPostParams().stream()
+                .filter(pair -> pair.getName().equals(name))
+                .findAny();
+    }
+
+
 }
