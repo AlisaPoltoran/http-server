@@ -1,5 +1,7 @@
 package ru.netology;
 
+import org.apache.commons.fileupload.FileUploadException;
+
 import javax.swing.text.html.Option;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -34,7 +36,7 @@ public class ClientConnection implements Runnable {
              final BufferedOutputStream out = new BufferedOutputStream(this.socket.getOutputStream())) {
 
             Optional<Request> optionalRequest = new RequestParser().parseRequest(in);
-            if(optionalRequest.isEmpty()){
+            if (optionalRequest.isEmpty()) {
                 badRequestMessage(out);
                 return;
             }
@@ -46,6 +48,11 @@ public class ClientConnection implements Runnable {
             System.out.println("this is a request: " + request);
             System.out.println("Метод getPostParams: " + request.getPostParams());
             System.out.println("Метод getPostParam по title: " + request.getPostParam("m"));
+            try {
+                request.getParts();
+            } catch (FileUploadException e) {
+                e.printStackTrace();
+            }
 
             handleRequest(request, out);
 
@@ -87,6 +94,7 @@ public class ClientConnection implements Runnable {
 
             Handler handler = values.get(request.getPathWithoutQueryParams());
             handler.handle(request, out);
+            System.out.println(request.getCharacterEncoding());
 
         } catch (IOException e) {
             e.printStackTrace();

@@ -13,7 +13,9 @@ public class RequestParser {
 
         in.mark(LIMIT);
         final byte[] buffer = new byte[LIMIT];
+
         final int read = in.read(buffer);
+        final byte[] requestBytes = in.readNBytes(LIMIT);
 
         final byte[] requestLineDelimiter = new byte[]{'\r', '\n'};
         final int requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
@@ -51,6 +53,7 @@ public class RequestParser {
 
         final byte[] headersBytes = in.readNBytes(headersEnd - headersStart);
         final List<String> headers = Arrays.asList(new String(headersBytes).split("\r\n"));
+        System.out.println("Headers: " + headers);
         String body = null;
         if (!method.equals("GET")) {
             in.skip(headersDelimiter.length);
@@ -63,7 +66,7 @@ public class RequestParser {
             }
         }
 
-        return Optional.of(new Request(method, path, protocol, body));
+        return Optional.of(new Request(method, path, protocol, body, requestBytes));
     }
 
     private static int indexOf(byte[] array, byte[] target, int start, int max) {
