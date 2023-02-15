@@ -43,7 +43,6 @@ public class Main {
                             "\r\n"
             ).getBytes());
             out.flush();
-            System.out.println("POST request");
         }));
 
         server.addHandler("GET", "/messages", (((request, out) -> {
@@ -54,8 +53,17 @@ public class Main {
                             "\r\n"
             ).getBytes());
             out.flush();
-            System.out.println("GET request");
         })));
+
+        server.addHandler("GET", "/", ((((request, out) -> {
+            out.write((
+                    "HTTP/1.1 200 OK\r\n" +
+                            "Content-Length: 0\r\n" +
+                            "Connection: close\r\n" +
+                            "\r\n"
+            ).getBytes());
+            out.flush();
+        }))));
 
         server.addHandler("POST", "/", ((((request, out) -> {
             out.write((
